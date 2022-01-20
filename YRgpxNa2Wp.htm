@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>地名WPT変換</title>
+  <style>
+	body { width: 90%; max-width: 900px; min-width: 480px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+	[ヤマレコ地名付GPX 地名→ウエイポイント変換 V1.0]
+	<br>
+	<b>画面にGPXファイルをドロップするか、ファイル選択ボタンを押して選択してください。</b>
+	<input type="file" multiple id="selfile">
+	<br>
+	<form name="entFil">
+		<div>
+			<label for="read_txt">入力ファイル（ＧＰＸ）</label> <br>
+			<textarea name="read_txt" rows="10" cols="80" readonly></textarea><br>
+		</div>
+	</form>
+
+	<form name="WpList">
+		<div>
+			<label for="WpList">地名(ウエイポイント)リスト</label> <br>
+			<textarea name="wrt_txt" rows="10" cols="80" wrap=off  readonly></textarea><br>
+		</div>
+	</form>
+
+	<form name="selbttn1">
+		<span><b style="color:red">🞛</b>地名[ふりがな]が有れば：</span>
+		<label><input type="radio" name="Ruby" value="on" onchange="make_Wplist_byYR(readTxt)"> 入れる</label>
+		<label><input type="radio" name="Ruby" value="off" onchange="make_Wplist_byYR(readTxt)" checked > 入れない</label>
+	</form>
+
+	<form name="selbttn2">
+		<span><b style="color:red">🞛</b>地名リンクが有れば：</span>
+		<label><input type="radio" name="Link" value="on" onchange="make_Wplist_byYR(readTxt)" checked > 入れる</label>
+		<label><input type="radio" name="Link" value="off" onchange="make_Wplist_byYR(readTxt)" > 入れない</label>
+	</form>
+
+
+	<br>
+	<a id="getLocal" href="#" onClick="saveFile()">
+	<span style="border: 1px solid #000000; background-color: #dcdcdc">変換したファイルを保存</span></a>
+	<br><br>
+
+<script>
+
+var obj1 = document.getElementById("selfile");
+var readTxt = ""; // 入力ファイルの文字列
+var writeFilNam = ""; // 拡張子無しファイル名
+var writeTex = ""; // 出力ファイル用文字列
+var pointer = 0; // 検索用ポインタ
+var trkpArr = [0, ""]; // trkptArr = [pointer, "lon,lat,ele"]
+var flgErr1 = 1; // エラーフラグ
+var WpList = {}; // ウエイポイント(地名)配列 { name; [ lat, lon, Link ], ... ]
+
+
+//ファイル読み込み（ダイアログでファイルが選択かドロップされた時）
+const dropArea = document.body; // ドラッグ&ドロップを許可する領域
+dropArea.addEventListener("dragover", event => {
+	event.preventDefault();
+	event.dataTransfer.dropEffect = "copy";
+});
+dropArea.addEventListener("drop", event => {
+   event.preventDefault();
+   var files = event.dataTransfer.files;
+   getFiles(files);
+});
+function getFiles(files){
+	for (let file of files){
+		var reader = new FileReader();
+		reader.readAsText(file); 
+		reader.onload = event => {
+			readTxt = event.target.result;
+			writeFilNam = file.name.split(".")[0];
+			after_file_read(readTxt, writeFilNam);
+		}
+	}
+}
+// ファイル選択ボタン入力
+var obj1 = document.getElementById("selfile");
+obj1.addEventListener("change",function(evt){
+	var file = evt.target.files;
+  // ファイルの情報を取得
+	var input = document.querySelector("#selfile").files[0];
+	var reader = new FileReader();  // FileReaderの作成
+	reader.readAsText(file[0]);  // テキスト形式で読み込む
+  // 読込終了後
+	reader.onload = function(){
+		readTxt = reader.result; // 読み込んだテキストを readTxt に入れる
+		writeFilNam = input.name.split( "." )[0];
+		after_file_read(readTxt, writeFilNam);
+	 }
+},false);
+
+function after_file_read(readTxt, writeFilNam){
+	document.entFil.read_txt.value = readTxt;  //テキストエリアに表示
+	let fieChk = 0;
+	pointer = readTxt.indexOf("</gpx>");
+	( pointer !== -1 ) ? fieChk = fieChk: fieChk++;
+	pointer = readTxt.indexOf("<gpx");
+	( pointer !== -1 ) ? fieChk = fieChk: fieChk++;
+	if (fieChk === 0 ){
+		make_Wplist_byYR(readTxt);
+		flgErr1 = 0;
+	}else{
+		alert("ファイル1はGPXファイルではありません");
+		flgErr1 = 1;
+	}
+}
+
+
+function mke_write_txt() {
+	pointer = readTxt.indexOf("<trk>");
+	writeTex = readTxt.substring( 0, pointer );
+	writeTex += mak_wptTxt();
+	while ( pointer != -1 ){	
+		pointer = readTxt.indexOf("<trk>", pointer);
+		if ( pointer != -1 ){
+			let pointer2 = readTxt.indexOf("<trkpt ", pointer);
+			writeTex += readTxt.substring( pointer, pointer2 );
+			let trkStr = readTxt.substring( pointer2, readTxt.indexOf("</trk>", pointer) );
+			let pointer3, pointer4;
+			while ( pointer3 != -1 ){
+				pointer3 = trkStr.indexOf( "<trkpt ",  pointer3 );
+				if ( pointer3 != -1 ){
+					pointer4 = trkStr.indexOf("</trkpt>", pointer3);
+					let trkptStr = trkStr.substring( pointer3, pointer4 + 8 );
+					if ( trkptStr.indexOf("<name>") != -1 ){ trkptStr = trkptStr.split("<name>")[0] + "</trkpt>"; }
+					writeTex += trkptStr + "\n";
+					pointer3++;
+				}else{
+					writeTex += "</trkseg>\n</trk>\n";
+					break;
+				}
+			}
+			pointer++;
+		}else{
+			break;
+		}
+	}
+	writeTex += "</gpx>\n";
+}
+
+function mak_wptTxt(){
+	let wpTxt = "", wptName;
+	for ( let keyName in WpList ){
+		let wpData = WpList[ keyName ];
+		wptName = keyName + wpData[3];
+		wpTxt += `<wpt lat="${wpData[0]}" lon="${wpData[1]}" >\n`;
+		wpTxt +=  `<name>${wptName}</name>\n<cmt>${wpData[4]}</cmt>\n`;
+		wpTxt +=  `<desc>${wpData[2]}</desc>\n</wpt>\n`;
+	}
+
+	return wpTxt;
+}
+
+function saveFile() {
+// ファイル出力
+	if (flgErr1 == 1 ){ alert("有効なGPXファイルが読み込まれていません"); return;}
+	let title = writeFilNam + "_wp.gpx"; // 出力ファイル名
+	let linkTag = document.getElementById( "getLocal" );
+	let linkTagAttr =  ["href","download"];
+	let stringObject = new Blob( [writeTex], { type: "text/plain" } );
+	let objectURL = window.URL.createObjectURL( stringObject );   
+	linkTag.setAttribute( linkTagAttr[0], objectURL );
+	linkTag.setAttribute( linkTagAttr[1], title ); 
+}
+
+
+// ヤマレコ地名付GPX読み込み時のマーカーリスト作成
+function make_Wplist_byYR(entStr){
+	if (readTxt === "" ){ return; }
+	WpList = {};	pointer = 0;	let nnn = 0;
+	while ( nnn < 100 ){
+		pointer = entStr.indexOf("<trkpt",pointer);
+		if (pointer === -1){ break; }
+		let trkptStr = entStr.substring(pointer, entStr.indexOf("</trkpt>",pointer)+8);
+		if ( trkptStr.indexOf("<name>") != -1 ){
+			let Latpt = trkptStr.indexOf("lat=");
+			let Lonpt = trkptStr.indexOf("lon=");
+			let strLat = trkptStr.substring( Latpt+5, trkptStr.indexOf('"', Latpt+5) );
+			let strLon = trkptStr.substring( Lonpt+5, trkptStr.indexOf('"', Lonpt+5) );
+			let strPLName = trkptStr.substring(trkptStr.indexOf("<name>")+6, trkptStr.indexOf("</name>"));
+			let strName, strRuby, strLink;
+			if ( strPLName.indexOf( "[" ) != -1 ){
+				strName = strPLName.split(" ")[0]; 
+				strRuby = strPLName.split(" ")[1]; 
+			}else{
+				strName = strPLName;
+				 strRuby = "";
+			}
+			let strRuby2 = strRuby
+			if ( strRuby2 != "" ){
+				strRuby2 = strRuby2.replace("[", "");
+				strRuby2 = strRuby2.replace("]", "");
+			}
+			(document.selbttn1.Ruby.value === "off" ) ?  strRuby = "":  strRuby = strRuby;
+			( trkptStr.indexOf( "<link>" ) != -1 ) ? strLink = trkptStr.substring(trkptStr.indexOf("<link>")+6, trkptStr.indexOf("</link>")): strLink = "";
+			(document.selbttn2.Link.value === "off" ) ?  strLink = "":  strLink = strLink;
+			let dupNameFlg = 0;
+		 	for (let keyName in WpList ){ if ( keyName ===  strName ){ dupNameFlg = 1; } }
+			if ( dupNameFlg === 0 ){ 
+				WpList[ strName ] = [strLat, strLon, strLink, strRuby, strRuby2];
+			}
+			nnn++;
+		}
+		pointer ++;
+	}
+	let wpTxt = "";
+	for ( let keyName in WpList ){
+		let wpData = WpList[ keyName ];
+		wpTxt += keyName + wpData[3] + " (" + wpData[0] +", " + wpData[1] +") " + wpData[2] +"\n"
+	}
+	document.WpList.wrt_txt.value = wpTxt;  //テキストエリアに表示
+mke_write_txt();
+}
+
+
+</script>
+</body>
+</html>
