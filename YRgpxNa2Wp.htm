@@ -39,7 +39,6 @@
 		<label><input type="radio" name="Link" value="off" onchange="make_Wplist_byYR(readTxt)" > 入れない</label>
 	</form>
 
-
 	<br>
 	<a id="getLocal" href="#" onClick="saveFile()">
 	<span style="border: 1px solid #000000; background-color: #dcdcdc">変換したファイルを保存</span></a>
@@ -111,7 +110,7 @@ function after_file_read(readTxt, writeFilNam){
 	}
 }
 
-
+// 書き出し用GPX記述（ ヘッダ + wptTxt + trk + <name>タグ削除trktrkpt ）
 function mke_write_txt() {
 	pointer = readTxt.indexOf("<trk>");
 	writeTex = readTxt.substring( 0, pointer );
@@ -144,6 +143,7 @@ function mke_write_txt() {
 	writeTex += "</gpx>\n";
 }
 
+// wtp記述
 function mak_wptTxt(){
 	let wpTxt = "", wptName;
 	for ( let keyName in WpList ){
@@ -153,12 +153,11 @@ function mak_wptTxt(){
 		wpTxt +=  `<name>${wptName}</name>\n<cmt>${wpData[4]}</cmt>\n`;
 		wpTxt +=  `<desc>${wpData[2]}</desc>\n</wpt>\n`;
 	}
-
 	return wpTxt;
 }
 
-function saveFile() {
 // ファイル出力
+function saveFile() {
 	if (flgErr1 == 1 ){ alert("有効なGPXファイルが読み込まれていません"); return;}
 	let title = writeFilNam + "_wp.gpx"; // 出力ファイル名
 	let linkTag = document.getElementById( "getLocal" );
@@ -168,7 +167,6 @@ function saveFile() {
 	linkTag.setAttribute( linkTagAttr[0], objectURL );
 	linkTag.setAttribute( linkTagAttr[1], title ); 
 }
-
 
 // ヤマレコ地名付GPX読み込み時のマーカーリスト作成
 function make_Wplist_byYR(entStr){
